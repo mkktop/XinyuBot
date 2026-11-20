@@ -1,0 +1,15 @@
+# 依赖与构建产物
+node_modules/
+lib/
+
+# 日志
+*.log
+
+# 本地会话数据（ZCode 计划等）
+.zcode/
+
+# 环境与密钥（令牌走 systemd drop-in，绝不落仓库）
+.env
+.env.*
+*.key
+*.pem

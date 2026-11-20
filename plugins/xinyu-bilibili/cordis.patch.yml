@@ -1,0 +1,58 @@
+# ============================================================================
+# dsh-xinyu-bilibili —— DSH bundle patch
+# ============================================================================
+# 挂载声明：把插件行与「新雨机器人」agent preset 行插入 Web profile 配置树。
+# 运行期设置（运营模式、内容方向、配额、人设等）不在这里配置：
+#   安装后打开 dsh 网页 → 左侧栏「新雨机器人」设置面板，
+#   设置持久化在 $DSH_HOME/xinyu-bilibili/settings.json（0600），热生效。
+#
+# 未雨 MCP（B 站查询/互动，GM800 上 Docker 127.0.0.1:8787）：
+#   preset plugins 即 agent 作用域的全部内容——不加这行，运营会话看不到
+#   任何 MCP 工具（根作用域挂载对 preset 会话不可见）。
+#   令牌走 systemd drop-in 环境变量 WEIYU_MCP_TOKEN，不落仓库。
+#
+# 安装：dsh plugin --profile web add link:<本目录绝对路径>
+# ============================================================================
+
+- insert:
+    - id: xinyu-bilibili
+      name: dsh-xinyu-bilibili
+      config:
+        # 设置文件路径；默认 $DSH_HOME/xinyu-bilibili/settings.json
+        # settingsPath: "/etc/xinyu/settings.json"
+    - id: preset-xinyu-operator
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: xinyu-operator
+        name: 新雨机器人
+        description: 新雨小号的 B 站运营会话——刷B站、发现好内容、评论与回复。所有公开发言经插件闸门管控。
+        order: 6
+        plugins:
+          - id: time
+            name: '@deepseek-ai/dsh-time-context'
+          # 未雨 MCP 全量工具（含写入工具）；agent 作用域的写工具由插件在每轮
+          # 用 tools.restrict/guard 屏蔽，写作仅能走插件的 xinyu_* 闸门工具。
+          - id: mcp-weiyu
+            name: '@deepseek-ai/dsh-mcp-client'
+            config:
+              serverName: weiyu
+              transport: streamable-http
+              url: !!js 'process.env.XINYU_MCP_URL || "http://127.0.0.1:8787/mcp"'
+              headers:
+                Authorization: !!js '`Bearer ${process.env.WEIYU_MCP_TOKEN}`'
+              toolCallTimeoutMs: 60000
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
